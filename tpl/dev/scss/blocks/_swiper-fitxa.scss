@@ -45,6 +45,13 @@
             max-width: 100%;
             max-height: 100%;
         }
+        &--double {
+            img {
+                max-width: 50%;
+                height: auto;
+                object-fit: contain;
+            }
+        }
     }
 }
 .swiper--thumbs {
@@ -58,8 +65,17 @@
             display: block;
             margin: 0 auto;
         }
+        &--double {
+            display: flex;
+            img {
+                width: 50%;
+                height: auto;
+                object-fit: contain;
+            }
+        }
     }
     .swiper-slide-thumb-active {
         opacity: 1;
     }
 }
+

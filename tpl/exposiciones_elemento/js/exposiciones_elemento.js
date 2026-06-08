@@ -197,7 +197,7 @@ var item = {
                 bibliography_data: "bibliographic_references",
                 documents_data: "documents",
                 children_data: "activities",
-                "children_data.identifying_image": "image",
+                "children_data.identifying_image_data": "image",
                 //people_data: "people",
 
                 //people_data: '',
@@ -543,7 +543,7 @@ var item = {
                                             <img src="${getPosterframe(
                                                 __WEB_MEDIA_ENGINE_URL__ +
                                                     entry.video
-                                            )}" alt="">
+                                            )}" alt="" onerror="this.remove()">
                                             <figcaption>${
                                                 entry.title
                                             }</figcaption>
@@ -719,7 +719,7 @@ var item = {
         });
         if (people.length == 0) {
             return "";
-        } 
+        }
         var rols = row.people_role ? JSON.parse(row.people_role) : [];
         return htmlTemplate(`
             <h2 class="accordion-header">

@@ -82,7 +82,8 @@ var catalog = {
         "section_tipo",
         "periodo_data",
         "periodo",
-        "geolocalizacion"
+        "geolocalizacion",
+        "relations"
     ],
 
     // catalog loaded items
@@ -1211,6 +1212,12 @@ var catalog = {
             image_url =
                 __WEB_MEDIA_ENGINE_URL__ +
                 row.imagenes_identificativas[0].image;
+        } else if (row.relations) {
+            const relations = JSON.parse(row.relations);
+            const randomImg = relations[Math.floor(Math.random() * relations.length)].image;
+            if (randomImg) {
+                image_url = __WEB_MEDIA_ENGINE_URL__ + randomImg;
+            }
         }
         return htmlTemplate(`
         <li class="${row.tpl}">

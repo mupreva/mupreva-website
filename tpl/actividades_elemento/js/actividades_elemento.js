@@ -197,7 +197,7 @@ var item = {
                 bibliography_data: "bibliographic_references",
                 documents_data: "documents",
                 children_data: "activities",
-                "children_data.identifying_image": "image",
+                "children_data.identifying_image_data": "image",
                 //people_data: "people",
 
                 //people_data: '',
@@ -543,7 +543,7 @@ var item = {
                                             <img src="${getPosterframe(
                                                 __WEB_MEDIA_ENGINE_URL__ +
                                                     entry.video
-                                            )}" alt="">
+                                            )}" alt="" onerror="this.remove()">
                                             <figcaption>${
                                                 entry.title
                                             }</figcaption>
@@ -625,12 +625,14 @@ var item = {
 
     templateGaleryElem: function (row) {
         var image_url = "/assets/img/placeholder.png";
+        console.log({row})
         if (row.image) {
             image_url = __WEB_MEDIA_ENGINE_URL__ + row.image;
         }
+        const dialogId = `dialog-${row.section_id}`;
         return `
         <li>
-            <a href="${image_url}" target="_blank">
+            <div class="button-like" data-a11y-dialog-show="${dialogId}">
                 <figure>
                     <img loading="lazy" src="${image_url}" alt="">
                     ${
@@ -641,7 +643,27 @@ var item = {
                             : ""
                     }
                 </figure>
-            </a>
+            </div>
+            <div class="dialog-container"
+                data-a11y-dialog="${dialogId}"
+                aria-hidden="true">
+
+                <div class="dialog-overlay" data-a11y-dialog-hide></div>
+
+                <div class="dialog-content" role="document">
+                    <button data-a11y-dialog-hide class="dialog-close" aria-label="Tanca aquesta finestra">
+                        ✕
+                    </button>
+
+                    <img loading="lazy"
+                        src="${image_url.replace('1.5MB','original')}"
+                        alt=""
+                        class="is-block">
+
+                    ${row.footprint ? `<p class="has-text-centered mt-2">${row.footprint}</p>` : ''}
+                    ${row.photographer ? `<p class="has-text-centered is-size-7 mt-2">${row.photographer}</p>` : ''}
+                </div>
+            </div>
         </li>
         `;
     }, //end list_row_builder
@@ -696,7 +718,7 @@ var item = {
         });
         if (people.length == 0) {
             return "";
-        } 
+        }
         var rols = row.people_role ? JSON.parse(row.people_role) : [];
         return htmlTemplate(`
             <h2 class="accordion-header">
@@ -750,16 +772,23 @@ var item = {
     },
 
     template_catalog_elem: function (row) {
+        let tpl = '';
+        switch(row.table) {
+            case 'activities': tpl = 'act'; break;
+            case 'exhibitions': tpl = 'exp'; break;
+            default: tpl = row.tpl;
+        }
+
         const url =
             page_globals.__WEB_ROOT_WEB__ +
             "/" +
-            row.tpl +
+            tpl +
             "/" +
             row.section_id;
         var image_url = "/assets/img/placeholder.png";
-        if (row.identifying_image.length > 0) {
+        if (row.identifying_image_data.length > 0) {
             image_url =
-                __WEB_MEDIA_ENGINE_URL__ + row.identifying_image[0].image;
+                __WEB_MEDIA_ENGINE_URL__ + row.identifying_image_data[0].image;
         }
         var date = null;
         if (row.time_frame) {
@@ -787,7 +816,7 @@ var item = {
                         : ""
                 }
                 ${
-                    row.time_start
+                    row.time_start && row.time_start != '00:00:00'
                         ? `<p class="has-text-primary has-text-weight-semibold is-size-6">
                     ${row.time_start}
                 </p>`

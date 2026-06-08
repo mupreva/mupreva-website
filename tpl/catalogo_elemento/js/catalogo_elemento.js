@@ -206,7 +206,7 @@ var item = {
                 "intervenciones.imagen_final": "image",
                 audiovisuales: "audiovisual",
                 children: "objects",
-                "children.imagenes_identificativas": "image",
+                "children.imagenes_identificativas_data": "image",
             };
             //}
             data_manager
@@ -496,56 +496,56 @@ var item = {
     template: function (row) {
         const url = this.absUrl(row);
         return htmlTemplate(`
-<div class="fitxa-intro columns is-variable is-8">
-    <div class="column flow--l">
-        ${
-            row.titulo
-                ? `
-        <h1>${row.titulo}</h1>
-        `
-                : ""
-        }
-        <dl>
-            ${this.templateFields(row)}
-        </dl>
-        ${
-            row.descripcion_relevante
-                ? `
-        <div class="flow">
-            ${row.descripcion_relevante}
-        </div>
-        `
-                : ""
-        }
+            <div class="fitxa-intro columns is-variable is-8">
+                <div class="column flow--l">
+                    ${
+                        row.titulo
+                            ? `
+                    <h1>${row.titulo}<span id="parents-breadcrumb" class="is-size-4 has-text-weight-light link-dn"></span></h1>
+                    `
+                            : ""
+                    }
+                    <dl>
+                        ${this.templateFields(row)}
+                    </dl>
+                    ${
+                        row.descripcion_relevante
+                            ? `
+                    <div class="flow">
+                        ${row.descripcion_relevante}
+                    </div>
+                    `
+                            : ""
+                    }
 
-        ${
-            row.analisis
-                ? `
-        <dl>
-            <dt>${tstring.item_analisis}</dt>
-            <dd>${row.analisis}</dd>
-        </dl>
-        `
-                : ""
-        }
+                    ${
+                        row.analisis
+                            ? `
+                    <dl>
+                        <dt>${tstring.item_analisis}</dt>
+                        <dd>${row.analisis}</dd>
+                    </dl>
+                    `
+                            : ""
+                    }
 
 
-        ${
-            row.informacion_publica
-                ? `
-        <div class="flow">
-            ${row.informacion_publica}
-        </div>
-        `
-                : ""
-        }
-        <p> ${tstring.item_url_perm} <br>
-            <a href="${url}">${url}</a>
-        </p>
-    </div>
-    <div class="column is-1 is-hidden-touch is-hidden-desktop-only"></div>
-    ${this.renderImages(row)}
-</div>
+                    ${
+                        row.informacion_publica
+                            ? `
+                    <div class="flow">
+                        ${row.informacion_publica}
+                    </div>
+                    `
+                            : ""
+                    }
+                    <p> ${tstring.item_url_perm} <br>
+                        <a href="${url}">${url}</a>
+                    </p>
+                </div>
+                <div class="column is-1 is-hidden-touch is-hidden-desktop-only"></div>
+                ${this.renderImages(row)}
+            </div>
         `);
     },
 
@@ -579,7 +579,81 @@ var item = {
     renderImages: function (row) {
         const images = row.imagenes_identificativas.concat(row.imagenes);
         //if (this.isMoneda(row) && images.length > 1) {
-        if (row.imagenes_identificativas.length > 1) {
+        if (row.imagenes_identificativas.length > 1 && (row.imagenes || row.imagenes.length > 0)) {
+            const image1 = images[0];
+            const image1FileName = image1.image.split("/").pop();
+            const image2 = images[1];
+            const image2FileName = image2.image.split("/").pop();
+            return `
+            <div class="images-group fullscreen__fullheight column is-7-tablet is-half-desktop">
+                <!-- Slider -->
+                <div class="fullscreen__content fullscreen__content--1 swiper swiper--fitxa">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide swiper-slide--double">
+                            <img loading="lazy" class="image-zoom" src="${
+                                __WEB_MEDIA_ENGINE_URL__ + image1.image
+                            }" data-original="${
+                                __WEB_MEDIA_ENGINE_URL__ + imgOriginal(image1.image)
+                            }" alt="${image1.title}" data-caption="${image1.photographer ? image1.photographer : image1FileName}">
+                            <img loading="lazy" class="image-zoom" src="${
+                                __WEB_MEDIA_ENGINE_URL__ + image2.image
+                            }" data-original="${
+                                __WEB_MEDIA_ENGINE_URL__ + imgOriginal(image2.image)
+                            }" alt="${image2.title}" data-caption="${image2.photographer ? image2.photographer : image2FileName}">
+                        </div>
+                        ${images.slice(2)
+                            .map(function (image) {
+                                const imageFileName = image.image.split("/").pop();
+                                return `
+                                <div class="swiper-slide">
+                                    <img src="${
+                                        __WEB_MEDIA_ENGINE_URL__ + image.image
+                                    }" data-original="${__WEB_MEDIA_ENGINE_URL__ + imgOriginal(image.image)}" class="image-zoom" alt="${image.title ? image.title : ""}" data-caption="${image.photographer ? image.photographer : imageFileName}">
+                                </div>
+                            `;
+                            })
+                            .join("")}
+                    </div>
+                </div>
+                <!-- Eines -->
+                <div class="is-flex is-justify-content-center gap-7 is-relative py-4">
+                    <!-- fletxes -->
+                    <div class="swiper-button-prev"></div>
+                    <div class="swiper-button-next"></div>
+                    <!-- /fletxes -->
+                    <div class="btns is-flex gap-5">
+                        ${this.renderImageButtons()}
+                    </div>
+                </div>
+                <!-- /Eines -->
+                <div class="swiper swiper--thumbs">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide swiper-slide--double">
+                            <img src="${
+                                __WEB_MEDIA_ENGINE_URL__ + image1.image
+                            }" alt="${image1.title ? image1.title : ""}">
+                            <img src="${
+                                __WEB_MEDIA_ENGINE_URL__ + image2.image
+                            }" alt="${image2.title ? image2.title : ""}">
+                        </div>
+                        ${images.slice(2)
+                            .map(function (image) {
+                                return `
+                                <div class="swiper-slide">
+                                    <img src="${
+                                        __WEB_MEDIA_ENGINE_URL__ + image.image
+                                    }" alt="${image.title ? image.title : ""}">
+                                </div>
+                            `;
+                            })
+                            .join("")}
+                    </div>
+                </div>
+                <!-- /Slider -->
+                ${this.renderExport()}
+            </div>
+            `;
+        } else if (row.imagenes_identificativas.length > 1 && (!row.imagenes || row.imagenes.length === 0)) {
             //imatges moneda, dos columens
             const image1 = images[0];
             const image1FileName = image1.image.split("/").pop();
@@ -1273,7 +1347,7 @@ var item = {
                                         data-video-url="${__WEB_MEDIA_ENGINE_URL__ + entry.video}"
                                         data-subtitles-url="${__WEB_MEDIA_ENGINE_URL__ + entry.subtitles}">
                                         <figure>
-                                            <img src="${getPosterframe(__WEB_MEDIA_ENGINE_URL__ + entry.video)}" alt="">
+                                            <img src="${getPosterframe(__WEB_MEDIA_ENGINE_URL__ + entry.video)}" alt="" onerror="this.remove()">
                                             <figcaption>${entry.title||''}</figcaption>
                                         </figure>
                                     </button>
@@ -1484,7 +1558,7 @@ var item = {
     hasRelated: function (row) {
         return (
             typeof row.tipo_registro !== "undefined" &&
-            row.tipo_registro !== "Conjunto" &&
+            row.tipo_registro !== "Conjunto" && row.children &&
             row.children.length > 0
         );
     },
@@ -1767,6 +1841,97 @@ var item = {
         `;
     }, //end list_row_builder
 
+    template_thesaurus: function (target, row) {
+        const self = this;
+        if (!row.children || row.children.length === 0 || row.children === "[]") {
+            return null;
+        }
+
+        const template = htmlTemplate(`
+            <h2 class="accordion-header">
+                <button type="button">${tstring.item_thesaurus_immovable}</button>
+            </h2>
+            <div class="accordion-content">
+                <div class="accordion accordion--secondary">
+                    <div class="tree_wrapper"></div>
+                </div>
+            </div>
+        `);
+
+        const treeWrapper = template[2].querySelector(".tree_wrapper");
+
+        const childrenIds = JSON.parse(row.children || "[]").map(el => el.split('_')[1]);
+
+        if(childrenIds.length > 0) {
+            api.getImmovableRelated(childrenIds).then(function(data) {
+                const parsedData = data.map(el => ({section_id: el.section_id, titulo: el.titulo, parent: Number(JSON.parse(el.parent || "[]")[0].split('_')[1]) || null}));
+
+                const nodeMap = {};
+                const rootNode = {section_id: row.section_id, titulo: row.titulo, children: []};
+                nodeMap[rootNode.section_id] = rootNode;
+
+                parsedData.forEach(el => {
+                    nodeMap[el.section_id] = {section_id: el.section_id, titulo: el.titulo, children: []};
+                });
+                parsedData.forEach(el => {
+                    const parentNode = nodeMap[el.parent];
+                    if (parentNode) {
+                        parentNode.children.push(nodeMap[el.section_id]);
+                    }
+                });
+
+                const thesaurusData = [rootNode];
+
+                function renderTree(node) {
+                    const url = page_globals.__WEB_ROOT_WEB__ + "/imm/" + node.section_id;
+
+                    const tree_node = document.createElement('div');
+                    tree_node.className = 'tree_node';
+
+                    const grouped_children = document.createElement('div');
+                    grouped_children.className = 'grouped_children';
+
+                    const term_span = document.createElement('span');
+                    term_span.className = 'term';
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.target = '_blank';
+                    link.textContent = node.titulo;
+                    term_span.appendChild(link);
+                    grouped_children.appendChild(term_span);
+                    tree_node.appendChild(grouped_children);
+
+                    if (node.children.length > 0) {
+                        const arrow = document.createElement('button');
+                        arrow.className = 'arrow';
+                        grouped_children.appendChild(arrow);
+
+                        const branch = document.createElement('div');
+                        branch.className = 'branch hide';
+                        node.children.forEach(child => branch.appendChild(renderTree(child)));
+                        tree_node.appendChild(branch);
+
+                        arrow.addEventListener('click', function () {
+                            if (this.classList.contains('open')) {
+                                branch.classList.add('hide');
+                                this.classList.remove('open');
+                            } else {
+                                branch.classList.remove('hide');
+                                this.classList.add('open');
+                            }
+                        });
+                    }
+
+                    return tree_node;
+                }
+
+                thesaurusData.forEach(node => treeWrapper.appendChild(renderTree(node)));
+            })
+
+        appendTemplate(target, template);
+        }
+    },
+
     /**
      * RENDER
      * @return promise
@@ -1794,6 +1959,26 @@ var item = {
 
         appendTemplate(target, this.templateShare(row));
         appendTemplate(target, this.template(row));
+
+        if (row.table === 'immovables') {
+            const parentIds = JSON.parse(row.parent || "[]").map(el => el.split('_')[1]);
+            if(parentIds.length > 0) {
+                api.getImmovableRelated(parentIds).then(function(data) {
+                    const parentOrder = Object.fromEntries(parentIds.map((id, i) => [id, i]));
+                    const orderedData = data.slice().sort((a, b) =>
+                        parentOrder[String(a.section_id)] - parentOrder[String(b.section_id)]
+                    );
+                    const parentsTitles = orderedData.map(el => {
+                        const url = page_globals.__WEB_ROOT_WEB__ + '/imm/' + el.section_id;
+                        return (`<a href="${url}" target="_blank">${el.titulo}</a>`);
+                    }).join(' / ');
+                    const parentsBreadcrumb = document.getElementById('parents-breadcrumb');
+                    if (parentsBreadcrumb && orderedData.length > 0) {
+                        parentsBreadcrumb.innerHTML = ` / ${parentsTitles}`;
+                    }
+                })
+            }
+        }
 
         const acordion = common.create_dom_element({
             element_type: "div",
@@ -1834,6 +2019,11 @@ var item = {
 
         //excavacions
         this.templateExcavations(acordion, row);
+
+        if (row.table === 'immovables') {
+            //thesaurus
+            this.template_thesaurus(acordion, row);
+        }
 
         /*return new Promise(function (resolve) {
 
