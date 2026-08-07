@@ -242,9 +242,12 @@ function map_factory() {
                 : self.group_by_place(data)
             const group_data_length = group_data.length
 
-            // create marker. Build marker with custom icon and popup
-            const create_marker = function (element, latlng, marker_icon, popup) {
-                const marker = L.marker(latlng, { icon: marker_icon }).bindPopup(popup)
+            // create marker. Build marker with custom icon and a lazy popup
+            // (popup content is only built by Leaflet when the popup is actually opened,
+            // instead of eagerly for every marker up front)
+            const create_marker = function (element, latlng, marker_icon) {
+                const marker = L.marker(latlng, { icon: marker_icon })
+                    .bindPopup(function () { return self.popup_builder(element) }, self.popupOptions)
                 marker.on('mousedown', function (e) {
                     // event publish map_selected_marker
                     event_manager.publish('map_selected_marker', {
@@ -265,12 +268,6 @@ function map_factory() {
                     ? L.icon(element.marker_icon)
                     : self.icon_main // already parsed on init
 
-                const popup_content = self.popup_builder(element)
-
-                const popup = L.popup(self.popupOptions)
-                    .setLatLng([element.lat, element.lon])
-                    .setContent(popup_content)
-
                 if (element.geojson) {
 
                     for (let k = 0; k < element.geojson.length; k++) {
@@ -279,11 +276,10 @@ function map_factory() {
 
                         const marker = L.geoJSON(geojsonFeature, {
                             pointToLayer: function (feature, latlng) {
-                                // return create_marker(element, latlng, marker_icon, popup)
                                 return L.marker(latlng, { icon: marker_icon })
                             },
                             onEachFeature: function (feature, layer) {
-                                layer.bindPopup(popup)
+                                layer.bindPopup(function () { return self.popup_builder(element) }, self.popupOptions)
                             }
                         })
 
@@ -300,7 +296,7 @@ function map_factory() {
 
                 } else {
 
-                    const marker = create_marker(element, [element.lat, element.lon], marker_icon, popup)
+                    const marker = create_marker(element, [element.lat, element.lon], marker_icon)
                     ar_markers.push(marker)
                 }
             }
