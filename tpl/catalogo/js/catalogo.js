@@ -91,6 +91,26 @@ var catalog = {
         "geolocalizacion_produccion"
     ],
 
+    // fields (lightweight set used for map view - markers only, no images/metadata)
+    ar_fields_map: [
+        "section_id",
+        "titulo",
+        "section_tipo",
+        "geolocalizacion",
+        "geolocalizacion_produccion"
+    ],
+
+    // marker_details_cache. In-memory cache of fetched marker detail data, keyed by section_id
+    marker_details_cache: {},
+
+    // tpl_to_table. Maps a template code (tpl) back to its Dedalo table name, mirrors catalogo_elemento.php's area_name switch
+    tpl_to_table: {
+        img: "pictures",
+        cat: "objects",
+        imm: "immovables",
+        doc: "documents_catalog",
+    },
+
     // catalog loaded items
     loaded_items: null,
 
@@ -239,7 +259,12 @@ var catalog = {
         function selected_marker(data) {
             //console.log(" selected_marker data:", data);
             self.map_marker_results = data.item.group;
+            // render immediately with lightweight data (title + placeholder thumb)
             self.reset_map_results();
+            // then fetch full detail (images) for this marker's records and re-render
+            self.load_marker_details(data.item.group).then(function () {
+                self.reset_map_results();
+            });
         }
         // event map_popup_selected_item
         event_manager.subscribe(
@@ -1206,7 +1231,9 @@ var catalog = {
 
         // options
         const filter = options.filter || null;
-        const ar_fields = options.ar_fields || this.ar_fields;
+        const ar_fields =
+            options.ar_fields ||
+            (self.view_mode === "map" ? self.ar_fields_map : self.ar_fields);
         const order =
             typeof options.order !== "undefined"
                 ? options.order
@@ -1310,11 +1337,12 @@ var catalog = {
             order: order,
             process_result: process_result,
         };
-        //if (ar_tables.indexOf('sets') !== -1) {
-        request_body.resolve_portals_custom = {
-            imagenes_identificativas: "image",
-        };
-        //}
+        // map view only needs marker positions, not resolved image portals - deferred to load_marker_details() on click
+        if (self.view_mode !== "map") {
+            request_body.resolve_portals_custom = {
+                imagenes_identificativas: "image",
+            };
+        }
         const js_promise = data_manager.request({
             body: request_body,
         });
@@ -1327,6 +1355,70 @@ var catalog = {
 
         return js_promise;
     }, //end search_rows
+
+    /**
+     * LOAD_MARKER_DETAILS
+     * Batch-fetch full record detail (title, thumbnail) for a clicked marker's
+     * group of records, using the same batched section_id pattern already used
+     * by api.getImmovableRelated / api.getImagesFromArray. Results are cached
+     * in marker_details_cache so repeated clicks on the same marker are instant.
+     * @param array group - array of {section_id, tpl, title} lightweight records
+     * @return promise
+     */
+    load_marker_details: function (group) {
+        const self = this;
+
+        const to_fetch = group.filter(
+            (item) => !self.marker_details_cache[item.section_id]
+        );
+        if (to_fetch.length < 1) {
+            return Promise.resolve();
+        }
+
+        // group uncached section_ids by their target table
+        const by_table = {};
+        for (let i = 0; i < to_fetch.length; i++) {
+            const item = to_fetch[i];
+            const table = self.tpl_to_table[item.tpl];
+            if (!table) continue;
+            by_table[table] = by_table[table] || [];
+            by_table[table].push(item.section_id);
+        }
+
+        // one batched request per table present in the group
+        const requests = Object.keys(by_table).map(function (table) {
+            return page
+                .get_records({
+                    table: table,
+                    ar_fields: "section_id, titulo, imagenes_identificativas",
+                    section_id: by_table[table].join(","),
+                    resolve_portals_custom: {
+                        imagenes_identificativas: "image",
+                    },
+                })
+                .then(function (rows) {
+                    rows = rows || [];
+                    for (let i = 0; i < rows.length; i++) {
+                        const row = rows[i];
+                        const identifying_images = row.imagenes_identificativas
+                            ? typeof row.imagenes_identificativas === "string"
+                                ? row.imagenes_identificativas.split(" | ")
+                                : row.imagenes_identificativas
+                            : [];
+                        const image_url =
+                            typeof identifying_images[0] !== "undefined"
+                                ? common.get_media_engine_url(identifying_images[0].image)
+                                : null;
+                        self.marker_details_cache[row.section_id] = {
+                            title: row.titulo,
+                            image_url: image_url,
+                        };
+                    }
+                });
+        });
+
+        return Promise.all(requests);
+    }, //end load_marker_details
 
     /**
      * GET_TABLES
@@ -1515,17 +1607,20 @@ var catalog = {
                         return htmlTemplate(`
                             ${self.map_marker_results.map(function(data){
                                 const url = page_globals.__WEB_ROOT_WEB__ + '/' + data.tpl + '/' + data.section_id;
+                                // full detail (title + thumbnail), populated after load_marker_details() resolves
+                                const details = self.marker_details_cache[data.section_id];
                                 var image_url = '/assets/img/placeholder.png';
-                                if (data.identifying_images !== null && data.identifying_images !== '') {
-                                    image_url = data.identifying_images;
+                                if (details && details.image_url) {
+                                    image_url = details.image_url;
                                 }
+                                const title = (details && details.title) ? details.title : data.title;
                                 return `
                                 <li class="${data.tpl}">
                                     <a href="${url}" target="_blank">
                                         <figure>
                                             <img loading="lazy" src="${image_url}" alt="">
-                                            ${(data.title)?`
-                                            <figcaption>${data.title}</figcaption>
+                                            ${(title)?`
+                                            <figcaption>${title}</figcaption>
                                             `:''}
                                         </figure>
                                     </a>

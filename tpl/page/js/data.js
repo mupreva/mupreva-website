@@ -23,10 +23,6 @@ page.parse_map_data = function (rows) {
         // clone row object to preserve it as immutable
         const row = Object.assign({}, rows[i]);
 
-        const source_map_data = (typeof row.map === 'string' || row.map instanceof String)
-            ? JSON.parse(row.map)
-            : row.map
-
         let geolocation_data_geojson
         if (row.geolocalizacion !== null) {
             geolocation_data_geojson = (typeof row.geolocalizacion === 'string' || row.geolocalizacion instanceof String)
@@ -40,24 +36,14 @@ page.parse_map_data = function (rows) {
         }
         if (geolocation_data_geojson && geolocation_data_geojson.length > 0) {
 
-            // const identifying_images = row.identifying_images ? row.identifying_images.split(' | ') : []
-            const identifying_images = row.imagenes_identificativas
-                ? (typeof row.imagenes_identificativas === 'string' ? row.imagenes_identificativas.split(' | ') : row.imagenes_identificativas)
-                : []
-
-            const thumb_url = typeof identifying_images[0] !== "undefined"
-                ? common.get_media_engine_url(identifying_images[0].image)
-                : __WEB_TEMPLATE_WEB__ + '/assets/img/placeholder.png'
-
             const tpl = page.section_tipo_to_template(row.section_tipo)
 
+            // lightweight marker data only. Images/description are fetched on
+            // demand when a marker is clicked - see catalog.load_marker_details
             const item_data = {
                 section_id: row.section_id,
                 tpl: tpl,
-                title: row.titulo,
-                // name: 'name',
-                // description: 'description',
-                identifying_images: thumb_url
+                title: row.titulo
             }
 
             const marker_icon = (function (section_tipo) {
