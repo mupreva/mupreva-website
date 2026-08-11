@@ -538,6 +538,30 @@ var api = {
         return page.get_records(options);
     },
 
+    getPatrimonioRelacionado: function(ids, table) {
+        var options = {
+            table: table,
+            section_id: ids.join(','),
+            ar_fields: 'section_tipo, section_id, imagenes_identificativas, titulo',
+            resolve_portals_custom: '{"imagenes_identificativas": "image"}'
+        }
+        return page.get_records(options);
+    },
+
+    getChildren: function(ids, offset = 0) {
+        var options = {
+            table: "objects",
+            section_id: ids.join(','),
+            ar_fields: 'titulo, imagenes_identificativas, section_id, section_tipo',
+            resolve_portals_custom: '{"imagenes_identificativas": "image"}',
+            limit: 24,
+            count: true,
+            offset: offset,
+            get_count: true,
+        }
+        return page.get_records(options);
+    },
+
     getVisitasYacimiento: function() {
         var options = {
             table: 'ts_route',
@@ -576,10 +600,12 @@ var api = {
     },
 
     getGlobalSearchTypes: function(query) {
+        const queryAnd = query.split(' ').map(word => '+' + word).join(' ');
+
         var options = {
             table: 'global_search',
             ar_fields: 'ref_section_tipo',
-            sql_filter: `MATCH (search_data) AGAINST ('${query}' IN BOOLEAN MODE)`,
+            sql_filter: `MATCH (search_data) AGAINST ('${queryAnd}' IN BOOLEAN MODE)`,
             group: 'ref_section_tipo'
         }
 
@@ -619,6 +645,15 @@ var api = {
             section_id: 235
         }
 
+        return page.get_records(options);
+    },
+
+    getImmovablesRelatedByParent: function(section_tipo, section_id) {
+        var options = {
+            table: 'immovables',
+            sql_filter: `parents LIKE '%"${section_id}"%'`,
+            ar_fields: 'section_id, relations',
+        };
         return page.get_records(options);
     },
 

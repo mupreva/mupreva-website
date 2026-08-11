@@ -253,7 +253,7 @@ var thesaurus = {
                         table: table,
                         ar_fields: ar_fields,
                         lang: lang,
-                        sql_filter: sql_filter + " and (children is not null and relations is not null)",
+                        sql_filter: sql_filter + " and (relations is not null)",
                         limit: 0,
                         count: false,
                         order: order
@@ -267,7 +267,7 @@ var thesaurus = {
                         table: table,
                         ar_fields: ar_fields,
                         lang: lang,
-                        sql_filter: sql_filter + " and (children is not null and relations is null)",
+                        sql_filter: sql_filter + " and (relations is null)",
                         limit: 0,
                         count: false,
                         order: order

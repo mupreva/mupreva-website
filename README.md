@@ -66,4 +66,4 @@ The mupreva.org website aims to provide a **modern, accessible, and maintainable
 
 - Institutional presentation and visitor information
 - Details on exhibitions, collections, and activities
-- A modular and scalable architecture for future updates and extensions
+- A modular and scalable architecture for future updates and extensions.

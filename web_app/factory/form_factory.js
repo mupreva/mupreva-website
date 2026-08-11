@@ -625,10 +625,11 @@ function form_factory() {
                     } else if (item.op === 'MATCH') {
                         const search = item.value
                             .trim()
+                            .replace(/['"]/g, '')
                             .split(/\s+/)
                             .map(word => `+${word}`)
                             .join(' ');
-                        filter_line = "MATCH (" + item_field + ") AGAINST (" + search + " IN BOOLEAN MODE)"
+                        filter_line = "MATCH (" + item_field + ") AGAINST ('" + search + "' IN BOOLEAN MODE)"
                     } else {
                         filter_line = (item_field.indexOf("AS") !== -1 || (item.wrapper && item.wrapper.length > 0))
                             ? "" + item_field + "" + " " + item.op + " " + item.value + (" AND " + item_field + "!=''")
@@ -867,8 +868,9 @@ function form_factory() {
                 // main column search item
                 filter[op].push({
                     field: form_item.q_column_filter || q_column,
-                    value: `'${safe_value}'`,
-                    op: form_item.eq, // 'LIKE',
+                    value: `'%${safe_value}%'`,
+                    //op: form_item.eq, // 'LIKE',
+                    op: 'LIKE',
                     group: q_column
                 })
 

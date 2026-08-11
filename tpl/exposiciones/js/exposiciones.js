@@ -305,7 +305,7 @@ var actividades = {
                     <div class="field">
                         <label class="label is-sr-only" for="cercaData">${tstring.expositions_date_label}</label>
                         <div class="control">
-                            <input type="date" name="cercaData" id="time_frame" value="" class="input">
+                            <input type="number" name="cercaData" id="time_frame" value="" class="input" min="1000" max="9999" step="1" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="${tstring.expositions_date_label}">
                         </div>
                     </div>
                 </div>
@@ -397,9 +397,9 @@ var actividades = {
                 id: "type",
                 name: "type",
                 q_column: "type",
-                eq: "MATCH",
-                eq_in: "",
-                eq_out: "",
+                eq: "LIKE",
+                eq_in: "%",
+                eq_out: "%",
                 node_input: currentForm.querySelector("#type"),
                 callback: function (form_item) {
                     self.form.activate_autocomplete({
@@ -422,9 +422,9 @@ var actividades = {
                 id: "place",
                 name: "place",
                 q_column: "place",
-                eq: "MATCH",
-                eq_in: "",
-                eq_out: "",
+                eq: "LIKE",
+                eq_in: "%",
+                eq_out: "%",
                 node_input: currentForm.querySelector("#place"),
                 callback: function (form_item) {
                     self.form.activate_autocomplete({
@@ -455,11 +455,14 @@ var actividades = {
                 callback: function (form_item) {
                     const node_input = form_item.node_input;
                     function dateHandler() {
-                        if (form_item.q !== "") {
+                        const year = form_item.q;
+                        if (year !== "" && /^\d{4}$/.test(year)) {
                             form_item.sql_filter =
-                                "('" +
-                                form_item.q +
-                                "' BETWEEN STR_TO_DATE(SUBSTRING_INDEX(time_frame, ',', 1), '%Y-%m-%d %H:%i:%s') AND STR_TO_DATE(SUBSTRING_INDEX(time_frame, ',', -1), '%Y-%m-%d %H:%i:%s'))";
+                                "(STR_TO_DATE(SUBSTRING_INDEX(time_frame, ',', 1), '%Y-%m-%d %H:%i:%s') <= '" +
+                                year +
+                                "-12-31 23:59:59' AND STR_TO_DATE(SUBSTRING_INDEX(time_frame, ',', -1), '%Y-%m-%d %H:%i:%s') >= '" +
+                                year +
+                                "-01-01 00:00:00')";
                         } else {
                             form_item.sql_filter = null;
                         }
@@ -570,6 +573,11 @@ var actividades = {
     form_submit: function (options) {
         const self = this;
 
+        const form_inputs = document.querySelectorAll('input, select, textarea, button');
+        form_inputs.forEach(function (input) {
+            input.disabled = true;
+        });
+
         self.didSearchSomething = !!(self.form && typeof self.form.has_active_filters === 'function' && self.form.has_active_filters());
 
         return new Promise(function (resolve) {
@@ -644,6 +652,9 @@ var actividades = {
                         rows_list_container.appendChild(response);
                     }
                     self.form_submit_state = "done";
+                    form_inputs.forEach(function (input) {
+                        input.disabled = false;
+                    });
                     event_manager.publish("rendered", {
                         rows_list_container: rows_list_container,
                         view_mode: self.view_mode,

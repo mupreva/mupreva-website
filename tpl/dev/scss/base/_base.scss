@@ -84,7 +84,7 @@ s {
             position: relative;
             > br {
                 display: none;
-            }    
+            }
         }
         ul,
         ol {
@@ -251,6 +251,14 @@ figure {
 figcaption {
     font-size: var(--step--2) !important;
     margin-top: var(--space-3xs) !important;
+}
+
+mark {
+    background-color: $primary;
+    color: $white;
+    padding-left: var(--space-3xs);
+    padding-right: var(--space-3xs);
+    font-weight: 600;
 }
 
 details {

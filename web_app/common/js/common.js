@@ -927,24 +927,25 @@ var common = {
         const urlsToTry = [
             { url: download_url.replace('1.5MB', 'modified'), label: 'modified' },
             { url: download_url.replace('1.5MB', 'original'), label: 'original' },
-            { url: download_url,                              label: '1.5MB'    },
         ].filter(function(entry) { return Boolean(entry.url); });
+
+        const fallback = { url: download_url, label: '1.5MB' };
 
         return new Promise(function (resolve) {
             let idx = 0;
 
             function attempt() {
                 if (idx >= urlsToTry.length) {
-                    resolve(null);
+                    resolve(fallback);
                     return;
                 }
-                const { url, label } = urlsToTry[idx++];
+                const candidate = urlsToTry[idx++];
 
-                fetch(url, { method: 'HEAD' })
+                fetch(candidate.url, { method: 'HEAD' })
                     .then(function (response) {
                         const contentType = response.headers.get('content-type') ?? '';
                         if (response.ok && contentType.startsWith('image/')) {
-                            resolve({ url, label });
+                            resolve(candidate);
                         } else {
                             attempt();
                         }
@@ -1158,7 +1159,34 @@ var common = {
             '<span style="$2"><a href="$1">$3</a></span>'
         );
         return output;
-    }
+    },
+
+    parseJsonArray: function(raw) {
+        try {
+            const parsed = JSON.parse(raw ?? '[]');
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    },
+
+    extractIdsFromTermsArray: function(raw, filter = null) {
+        if (!raw) return [];
+        try {
+            const parsed = JSON.parse(raw);
+            const types = {};
+            parsed.forEach((ref) => {
+                const [type, id] = ref.split('_');
+                if (!types[type]) types[type] = [];
+                types[type].push(parseInt(id, 10));
+            });
+
+            const result = filter ? types[filter] || [] : types;
+            return result;
+        } catch {
+            return [];
+        }
+    },
 }//end common
 
 

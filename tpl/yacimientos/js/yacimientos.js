@@ -765,6 +765,11 @@ var catalog = {
         const self = this;
         self.map_legend.innerHTML = '';
 
+        const form_inputs = document.querySelectorAll('input, select, textarea, button');
+        form_inputs.forEach(function (input) {
+            input.disabled = true;
+        });
+
         self.didSearchSomething = !!(self.form && typeof self.form.has_active_filters === 'function' && self.form.has_active_filters());
 
         return new Promise(function (resolve) {
@@ -836,6 +841,9 @@ var catalog = {
                         rows_list_container.appendChild(response);
                     }
                     self.form_submit_state = "done";
+                    form_inputs.forEach(function (input) {
+                        input.disabled = false;
+                    });
                     event_manager.publish("rendered", {
                         rows_list_container: rows_list_container,
                         view_mode: self.view_mode,

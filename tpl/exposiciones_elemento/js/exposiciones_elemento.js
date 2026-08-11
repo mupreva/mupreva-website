@@ -41,16 +41,48 @@ var item = {
 
             const data = page.parse_list_data(response.result);
             const row = data[0] || null;
-            self.render({
-                row: row,
-                target: self.target,
-            });
-            // append export data buttons
-            document
-                .getElementById("export_data_container")
-                .appendChild(export_data_buttons);
 
-            viewInit();
+            const parsedRelatedData = common.parseJsonArray(row.related_data).map(el => el.replaceAll('activity1_', ''));
+
+            const renderPage = function () {
+                self.render({
+                    row: row,
+                    target: self.target,
+                });
+                document
+                    .getElementById("export_data_container")
+                    .appendChild(export_data_buttons);
+                viewInit();
+            };
+
+            if (parsedRelatedData.length > 0) {
+                data_manager.request({
+                    body: {
+                        dedalo_get: "records",
+                        db_name: page_globals.WEB_DB,
+                        table: "activities",
+                        ar_fields: ["*"],
+                        lang: page_globals.WEB_CURRENT_LANG_CODE,
+                        section_id: parsedRelatedData.join(","),
+                        limit: 0,
+                        count: false,
+                    },
+                }).then(function (related_response) {
+                    related_response.result.forEach(rel => {
+                        rel.tpl = "act";
+                        const parsed = common.parseJsonArray(rel.identifying_image)
+                        if (parsed.length > 0) {
+                            rel.identifying_image_url = parsed[0] ? (__WEB_MEDIA_ENGINE_URL__ + parsed[0]) : null;
+                        }
+                    });
+                    row.related_data_resolved = related_response.result || [];
+
+                    renderPage();
+                });
+            } else {
+                row.related_data_resolved = [];
+                renderPage();
+            }
         });
 
         // events
@@ -447,7 +479,7 @@ var item = {
                     </div>
                 </div>
                 <!-- Eines -->
-                <div class="is-flex is-justify-content-center gap-7 is-relative py-4">
+                <div class="is-flex is-justify-content-center gap-7 is-relative py-4" style="height: 60px;">
                     <!-- fletxes -->
                     <div class="swiper-button-prev"></div>
                     <div class="swiper-button-next"></div>
@@ -690,7 +722,7 @@ var item = {
     },
 
     templateActivitiesRelated: function (row) {
-        if (!row.children_data || row.children_data.length == 0) {
+        if (!row.related_data_resolved || row.related_data_resolved.length == 0) {
             return "";
         }
         var self = this;
@@ -700,7 +732,7 @@ var item = {
             </h2>
             <div class="accordion-content block-dedalo">
                 <ul class="galeria galeria--242x242 link-dn">
-                ${row.children_data
+                ${row.related_data_resolved
                     .map(function (object) {
                         return self.template_catalog_elem(object);
                     })
@@ -781,10 +813,13 @@ var item = {
             "/" +
             row.section_id;
         var image_url = "/assets/img/placeholder.png";
-        if (row.identifying_image.length > 0) {
+        if (row.identifying_image_url) {
+            image_url = row.identifying_image_url;
+        }else if (row.identifying_image.length > 0) {
             image_url =
                 __WEB_MEDIA_ENGINE_URL__ + row.identifying_image[0].image;
         }
+
         var date = null;
         if (row.time_frame) {
             var date = formatDateRange(

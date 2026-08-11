@@ -205,8 +205,9 @@ var item = {
                 "intervenciones.imagen_inicial": "image",
                 "intervenciones.imagen_final": "image",
                 audiovisuales: "audiovisual",
-                children: "objects",
-                "children.imagenes_identificativas_data": "image",
+                children_id: "immovables",
+                // children: "objects",
+                // "children.imagenes_identificativas_data": "image",
             };
             //}
             data_manager
@@ -222,14 +223,31 @@ var item = {
                         ) {
                             item.bibliografia_propia = item.bibliografia;
                         }
+                        if (item.children) {
+                            item.children_parsed = common.extractIdsFromTermsArray(item.children, 'tch1');
+                        }
                         return item;
                     });
-                    event_manager.publish("data_request_done", {
-                        request_body: request_body,
-                        result: result,
+
+                    const childrenPromises = result.map(function (item) {
+                        if (!item.children_parsed || item.children_parsed.length === 0) {
+                            return Promise.resolve();
+                        }
+                        return api.getChildren(item.children_parsed).then(function ({data, total}) {
+                            item.children_resolved = data;
+                            item.children_total = total;
+                            item.children_loaded = data.length;
+                        });
                     });
 
-                    resolve(response);
+                    Promise.all(childrenPromises).then(function () {
+                        event_manager.publish("data_request_done", {
+                            request_body: request_body,
+                            result: result,
+                        });
+
+                        resolve(response);
+                    });
                 });
         });
     }, //end load_data
@@ -601,7 +619,7 @@ var item = {
                                 __WEB_MEDIA_ENGINE_URL__ + imgOriginal(image2.image)
                             }" alt="${image2.title}" data-caption="${image2.photographer ? image2.photographer : image2FileName}">
                         </div>
-                        ${images.slice(2)
+                        ${images
                             .map(function (image) {
                                 const imageFileName = image.image.split("/").pop();
                                 return `
@@ -616,7 +634,7 @@ var item = {
                     </div>
                 </div>
                 <!-- Eines -->
-                <div class="is-flex is-justify-content-center gap-7 is-relative py-4">
+                <div class="is-flex is-justify-content-center gap-7 is-relative py-4" style="height: 60px;">
                     <!-- fletxes -->
                     <div class="swiper-button-prev"></div>
                     <div class="swiper-button-next"></div>
@@ -636,7 +654,7 @@ var item = {
                                 __WEB_MEDIA_ENGINE_URL__ + image2.image
                             }" alt="${image2.title ? image2.title : ""}">
                         </div>
-                        ${images.slice(2)
+                        ${images
                             .map(function (image) {
                                 return `
                                 <div class="swiper-slide">
@@ -759,7 +777,7 @@ var item = {
                     </div>
                 </div>
                 <!-- Eines -->
-                <div class="is-flex is-justify-content-center gap-7 is-relative py-4">
+                <div class="is-flex is-justify-content-center gap-7 is-relative py-4" style="height: 60px;">
                     <!-- fletxes -->
                     <div class="swiper-button-prev"></div>
                     <div class="swiper-button-next"></div>
@@ -875,6 +893,24 @@ var item = {
     templateTecnicDefault: function (row) {
         const datacion = this.datacion(row);
         const tipologyUri = this.getTipologyUri(row);
+
+        let lugar_produccion_parsed = null;
+
+        try {
+            lugar_produccion_parsed = JSON.parse(row.lugar_produccion);
+        } catch {}
+
+        const lugarProduccionId = lugar_produccion_parsed ? lugar_produccion_parsed[0] : null;
+
+        const esImmueble = lugarProduccionId && lugarProduccionId.includes('tchi1');
+        const esToponimia = lugarProduccionId && lugarProduccionId.includes('htoponymy1');
+
+        const lugar = esImmueble
+            ? `<a href="/imm/${lugarProduccionId.replace('tchi1_', '')}" target="_blank">${row.lugar_produccion_literal}</a>`
+            : esToponimia
+                ? `<a href="/htop/${lugarProduccionId.replace('htoponymy1_', '')}" target="_blank">${row.lugar_produccion_literal}</a>`
+                : row.lugar_produccion_literal
+
         return `
             <table class="table-collapsibles">
                 ${
@@ -946,12 +982,12 @@ var item = {
                         : ""
                 }
                 ${
-                    row.lugar_produccion_literal
+                    lugar
                         ? `
                 <tr>
                     <td></td>
                     <th>${tstring.item_production}</th>
-                    <td>${row.lugar_produccion_literal}</td>
+                    <td>${lugar}</td>
                 </tr>
                 `
                         : ""
@@ -1395,82 +1431,38 @@ var item = {
         if (!row.intervenciones || row.intervenciones.length < 1) {
             return "";
         }
+
         return htmlTemplate(`
             <h2 class="accordion-header">
                 <button type="button">${tstring.item_restoration}</button>
             </h2>
             <div class="accordion-content block-dedalo">
-            ${row.intervenciones
-                .map(function (elem) {
-                    return `<div class="table-collapsibles">
-                    <table>
-                        <tbody>
-                        ${
-                            elem.intervention_type
-                                ? `<tr>
-                            <th>${tstring.item_intervention_type}</th>
-                            <td>${elem.intervention_type}</td>
-                        </tr>`
-                                : ""
+                <ul class="interventions-list">
+                    ${row.intervenciones.map((elem) => {
+                        const { intervention_type, titulo, fecha_inicio, fecha_fin, imagen_inicial, section_id } = elem;
+                        const fechaInicioString = fecha_inicio ? `<time datetime="${fecha_inicio}">${formatDate(fecha_inicio)}</time>` : "";
+                        const fechaFinString = fecha_fin ? `<time datetime="${fecha_fin}">${formatDate(fecha_fin)}</time>` : "";
+                        const fechaString = [fechaInicioString, fechaFinString].filter(Boolean).join(" - ");
+                        const interventionString = [intervention_type, titulo, fechaString].filter(Boolean).join(" | ");
+
+                        if (!interventionString) {
+                            return "";
                         }
-                        ${
-                            elem.titulo
-                                ? `<tr>
-                            <th>${tstring.item_restoration_title}</th>
-                            <td><a href="/int/${elem.section_id}" target="_blank">${elem.titulo}</a></td>
-                        </tr>`
-                                : ""
-                        }
-                        ${
-                            elem.fecha_inicio && elem.fecha_fin
-                                ? `<tr>
-                            <th>${tstring.item_restoration_date}</th>
-                            <td>
-                                ${
-                                    elem.fecha_inicio
-                                        ? `<time datetime="${
-                                              elem.fecha_inicio
-                                          }">${formatDate(
-                                              elem.fecha_inicio
-                                          )}</time>`
-                                        : ""
-                                }
-                                ${
-                                    elem.fecha_fin
-                                        ? ` - <time datetime="${
-                                              elem.fecha_fin
-                                          }">${formatDate(
-                                              elem.fecha_fin
-                                          )}</time>`
-                                        : ""
-                                }
-                            </td>
-                        </tr>`
-                                : ""
-                        }
-                    </tbody>
-                    </table>
-                    ${
-                        elem.imagen_inicial && elem.imagen_inicial.length > 0
-                            ? `<ul class="galeria galeria--variable link-dn">
-                        ${elem.imagen_inicial
-                            .map(function (entry) {
-                                var image_url = "/assets/img/placeholder.png";
-                                if (entry.image !== null) {
-                                    image_url =
-                                        __WEB_MEDIA_ENGINE_URL__ + entry.image;
-                                }
-                                return `<li>
-                                <img loading="lazy" src="${image_url}" alt="${entry.description}">
-                        </li>`;
-                            })
-                            .join("")}
-                    </ul>`
-                            : ""
-                    }
-                </div>`;
-                })
-                .join("")}
+
+                        const imageEntry = imagen_inicial && imagen_inicial.length > 0 ? imagen_inicial[0] : null;
+                        const image = imageEntry?.image ? `${__WEB_MEDIA_ENGINE_URL__}${imageEntry.image}` : "";
+                        const description = imageEntry?.description || "";
+
+                        return `
+                            <li class="full-link">
+                                <a href="/int/${section_id}" target="_blank">
+                                    ${interventionString}
+                                </a>
+                                ${image ? `<img loading="lazy" src="${image}" alt="${description}" />` : ""}
+                            </li>
+                        `;
+                    }).join("")}
+                </ul>
             </div>
         `);
     },
@@ -1557,9 +1549,8 @@ var item = {
 
     hasRelated: function (row) {
         return (
-            typeof row.tipo_registro !== "undefined" &&
-            row.tipo_registro !== "Conjunto" && row.children &&
-            row.children.length > 0
+            row.children_resolved &&
+            row.children_resolved.length > 0
         );
     },
 
@@ -1570,84 +1561,191 @@ var item = {
             return "";
         };
 
-        return htmlTemplate(`
+        const template = htmlTemplate(`
             <h2 class="accordion-header">
                 <button type="button">${tstring.item_rel_content}</button>
             </h2>
             <div class="accordion-content block-dedalo">
-                <ul class="galeria galeria--242x242 link-dn">
-                ${row.children
+                <ul class="galeria galeria--92x92 link-dn">
+                ${row.children_resolved
                     .map(function (object) {
                         return self.template_catalog_elem(object);
                     })
                     .join("")}
                 </ul>
+                <div class="has-text-centered mt-6 button-load-more-children"></div>
             </div>
         `);
-    },
 
-    templateRelatedJaciments: function (row) {
-        var self = this;
+        const ul = template[2].querySelector("ul");
+        const buttonContainer = template[2].querySelector(".button-load-more-children");
 
-        if (!row.relations) {
-            return "";
-        };
-
-        const relations = JSON.parse(row.relations)
-            .filter((relation) => ['tch1', 'tch100', 'tchi1', 'tch300'].includes(relation.section_tipo))
-
-        const relationsData = relations.reduce((acc, relation) => {
-            const type = relation.section_tipo;
-            acc[type] = acc[type] || {type: page.get_translated_table(type), result: []}
-            acc[type].result.push(relation)
-            return acc;
-        }, {})
-
-        if (Object.keys(relationsData).length === 0) {
-            return '';
+        function renderLoadMoreButton() {
+            buttonContainer.innerHTML = "";
+            if (row.children_loaded >= row.children_total) {
+                return;
+            }
+            const button = htmlTemplate(`
+                <button type="button" class="button button--icon button--carrega">
+                    ${tstring.load_more} <small>[${row.children_loaded} / ${row.children_total}]</small>
+                </button>
+            `);
+            appendTemplate(buttonContainer, button);
+            buttonContainer.querySelector("button").addEventListener("click", function (e) {
+                e.preventDefault();
+                loadMoreChildren();
+            });
         }
 
-        return htmlTemplate(`
-            <h2 class="accordion-header">
-                <button type="button">${tstring.immovables_relations_title}</button>
-            </h2>
-            <div class="accordion-content block-dedalo">
-                <div class="tabs-2 mb-6">
-                    <div class="tab-control">
-                        <ul class="tab-list" role="tablist">
-                            ${Object.keys(relationsData).map((key) => {
-                                return `<li class="tab-item">
-                                    <button role="tab" aria-controls="${key}-tab">${relationsData[key].type}</button>
-                                </li>`
-                            }).join('')}
-                        </ul>
-                    </div>
-                </div>
-                <div class="tab-group">
-                    ${Object.keys(relationsData).map((key) => (
-                        `<div class="tab-content" id="${key}-tab" role="tabpanel">
-                            <ul class="galeria galeria--185x185 link-dn">
-                                ${relationsData[key].result.map((item) => {
-                                    const image = item.image ? __WEB_MEDIA_ENGINE_URL__ + item.image : '/assets/img/placeholder.png';
-                                    return `
-                                    <li>
-                                        <a href="${page_globals.__WEB_ROOT_WEB__}/${page.section_tipo_to_template(key)}/${item.section_id}" target="_blank">
-                                            <figure>
-                                                <img src=${image} alt=""  crossorigin="Anonymous" loading="lazy" />
-                                                ${item.title
-                                                    ? `<figcaption>${item.title}</figcaption>`
-                                                : ''}
-                                            </figure>
-                                        </a>
-                                    </li>
-                                    `
+        function loadMoreChildren() {
+            api.getChildren(row.children_parsed, row.children_loaded).then(function ({data, total}) {
+                row.children_total = total;
+                row.children_loaded += data.length;
+                row.children_resolved = row.children_resolved.concat(data);
+
+                const content = htmlTemplate(
+                    data.map(function (object) {
+                        return self.template_catalog_elem(object);
+                    }).join("")
+                );
+                appendTemplate(ul, content);
+                enableDialogs(ul);
+                renderLoadMoreButton();
+            });
+        }
+
+        renderLoadMoreButton();
+
+        return template;
+    },
+
+    templateRelatedJaciments: function (target, row) {
+        var self = this;
+
+        const ownRelations = row.relations ? JSON.parse(row.relations) : [];
+
+        api.getImmovablesRelatedByParent(row.section_tipo, row.section_id).then(function (results) {
+            const relatedRelations = (results || []).reduce(function (acc, item) {
+                if (!item.relations) {
+                    return acc;
+                }
+                return acc.concat(JSON.parse(item.relations));
+            }, []);
+
+            const seen = new Set();
+            const relations = ownRelations.concat(relatedRelations)
+                .filter((relation) => ['tch1', 'tch100', 'tchi1', 'tch300'].includes(relation.section_tipo))
+                .filter((relation) => {
+                    const key = `${relation.section_tipo}_${relation.section_id}`;
+                    if (seen.has(key)) {
+                        return false;
+                    }
+                    seen.add(key);
+                    return true;
+                });
+
+            const relationsData = relations.reduce((acc, relation) => {
+                const type = relation.section_tipo;
+                acc[type] = acc[type] || {type: page.get_translated_table(type), result: []}
+                acc[type].result.push(relation)
+                return acc;
+            }, {})
+
+            if (Object.keys(relationsData).length === 0) {
+                return;
+            }
+
+            const tabsId = `related-jaciments-${row.section_id}`;
+            const accordionId = `related-jaciments-accordion-${row.section_id}`;
+            const template = htmlTemplate(`
+            <div id="${accordionId}" class="accordion accordion--primary mt-6">
+                <h2 class="accordion-header">
+                    <button type="button">${tstring.immovables_relations_title}</button>
+                </h2>
+                <div class="accordion-content block-dedalo">
+                    <div id="${tabsId}" class="tabs-2 mb-6">
+                        <div class="tab-control">
+                            <ul class="tab-list" role="tablist">
+                                ${Object.keys(relationsData).map((key) => {
+                                    return `<li class="tab-item">
+                                        <button role="tab" aria-controls="${key}-tab">${relationsData[key].type}</button>
+                                    </li>`
                                 }).join('')}
                             </ul>
-                        </div>`
-                    )).join('')}
+                        </div>
+                    </div>
+                    <div class="tab-group">
+                        ${Object.keys(relationsData).map((key) => (
+                            `<div class="tab-content" id="${key}-tab" role="tabpanel">
+                                <ul class="galeria galeria--185x185 link-dn" id="${tabsId}-${key}-list"></ul>
+                                <div class="has-text-centered mt-6 button-load-more-${tabsId}-${key}"></div>
+                            </div>`
+                        )).join('')}
+                    </div>
                 </div>
             </div>
         `);
+
+            appendTemplate(target, template);
+            enableDialogs(target);
+            new TenUp.tabs(`#${tabsId}`, {});
+            // scoped to just this new block's id, so it doesn't re-initialize (and
+            // double the click listeners on) the page's already-initialized accordion
+            new TenUp.Accordion(`#${accordionId}`, {open: true});
+
+            const RELATIONS_PAGE_SIZE = 50;
+
+            function templateRelationItem(item, key) {
+                const image = item.image ? __WEB_MEDIA_ENGINE_URL__ + item.image : '/assets/img/placeholder.png';
+                return `
+                    <li>
+                        <a href="${page_globals.__WEB_ROOT_WEB__}/${page.section_tipo_to_template(key)}/${item.section_id}" target="_blank">
+                            <figure>
+                                <img src=${image} alt=""  crossorigin="Anonymous" loading="lazy" />
+                                ${item.title
+                                    ? `<figcaption>${item.title}</figcaption>`
+                                : ''}
+                            </figure>
+                        </a>
+                    </li>
+                `;
+            }
+
+            Object.keys(relationsData).forEach(function (key) {
+                const tabData = relationsData[key];
+                tabData.loaded = 0;
+
+                const ul = document.getElementById(`${tabsId}-${key}-list`);
+                const buttonContainer = target.querySelector(`.button-load-more-${tabsId}-${key}`);
+
+                function renderLoadMoreButton() {
+                    buttonContainer.innerHTML = "";
+                    if (tabData.loaded >= tabData.result.length) {
+                        return;
+                    }
+                    const button = htmlTemplate(`
+                        <button type="button" class="button button--icon button--carrega">
+                            ${tstring.load_more} <small>[${tabData.loaded} / ${tabData.result.length}]</small>
+                        </button>
+                    `);
+                    appendTemplate(buttonContainer, button);
+                    buttonContainer.querySelector("button").addEventListener("click", function (e) {
+                        e.preventDefault();
+                        loadMoreRelations();
+                    });
+                }
+
+                function loadMoreRelations() {
+                    const nextItems = tabData.result.slice(tabData.loaded, tabData.loaded + RELATIONS_PAGE_SIZE);
+                    const content = htmlTemplate(nextItems.map((item) => templateRelationItem(item, key)).join(''));
+                    appendTemplate(ul, content);
+                    tabData.loaded += nextItems.length;
+                    renderLoadMoreButton();
+                }
+
+                loadMoreRelations();
+            });
+        });
     },
 
     templateBibliografyEntry: function (entry) {
@@ -1678,17 +1776,106 @@ var item = {
         appendTemplate(target, template);
     },
 
+    templatePatrimonio: function (target, row) {
+        const self = this;
+
+        const ids = common.extractIdsFromTermsArray(row.patrimonio_relacionado);
+
+        if(Object.keys(ids).length === 0) return;
+
+        // Reserve the DOM position with an invisible marker: the accordion library
+        // requires .accordion-header/.accordion-content to be direct children of
+        // `target`, so we can't wrap them in a container div to control placement.
+        const placeholder = htmlTemplate(`<div style="display:none"></div>`);
+        const marker = placeholder[0];
+        appendTemplate(target, placeholder);
+
+        const template = htmlTemplate(`
+        <h2 class="accordion-header">
+            <button type="button">${tstring.item_related_heritage}</button>
+        </h2>
+        <div class="accordion-content block-dedalo">
+            <div class="text-base flow">
+                <ul class="galeria galeria--242x242 link-dn">
+                </ul>
+            </div>
+        </div>
+        `);
+        const ul = template[2].querySelector("ul");
+        const templateNodes = Array.from(template);
+
+        const types = Object.keys(ids);
+        const promises = []
+        const typesTableMap = {
+            'tch1': 'objects',
+            'tch100': 'pictures',
+            'tch300': 'documents_catalog',
+        }
+        const typeUrlMap = {
+            'tch1': 'cat',
+            'tch100': 'img',
+            'tch300': 'doc',
+        }
+        types.forEach(function (type) {
+            if (typesTableMap[type]) {
+                promises.push(
+                    api.getPatrimonioRelacionado(ids[type], typesTableMap[type])
+                );
+            }
+        });
+
+        Promise.all(promises).then(function (resultsByType) {
+            if(!resultsByType || resultsByType.length === 0 || (resultsByType.flat()).length === 0) {
+                templateNodes.forEach(function (node) { node.remove(); });
+                return;
+            }
+            resultsByType.forEach(function (results) {
+                results.forEach(function (entry) {
+                    const {titulo, section_id, imagenes_identificativas, section_tipo} = entry;
+                    const imageUrl = imagenes_identificativas && imagenes_identificativas.length > 0 ? __WEB_MEDIA_ENGINE_URL__ + imagenes_identificativas[0].image : '/assets/img/placeholder.png';
+                    const content = htmlTemplate(`
+                        <li class="img">
+                            <a href="/${typeUrlMap[section_tipo]}/${section_id}" target="_blank">
+                                <figure>
+                                    <img loading="lazy" src="${imageUrl}" alt="">
+                                    <figcaption>${titulo}</figcaption>
+                                </figure>
+                            </a>
+                        </li>
+                    `)
+                    appendTemplate(ul, content);
+                });
+            });
+        });
+        templateNodes.forEach(function (node) {
+            target.insertBefore(node, marker);
+        });
+        marker.remove();
+
+    },
+
     templateExcavations: function (target, row) {
         const self = this;
 
-        if (!row.relations) {
-            return null;
+        let parsedRelations = [];
+        if (row.relations) {
+            try {
+                parsedRelations = JSON.parse(row.relations);
+            } catch (e) {
+                parsedRelations = [];
+            }
         }
-        const relations = JSON.parse(row.relations).filter(function(value){
+
+        const relations = (Array.isArray(parsedRelations) ? parsedRelations : []).filter(function(value){
             return value.section_tipo == 'excavation1';
         }).map(function(value){
             return value.section_id;
         });
+
+        if (!relations || relations.length === 0) {
+            return null;
+        }
+
         const template = htmlTemplate(`
             <h2 class="accordion-header">
                 <button type="button">${tstring.item_excavations}</button>
@@ -1860,76 +2047,72 @@ var item = {
 
         const treeWrapper = template[2].querySelector(".tree_wrapper");
 
-        const childrenIds = JSON.parse(row.children || "[]").map(el => el.split('_')[1]);
+        if(row.children_id && row.children_id.length > 0) {
+            const parsedData = row.children_id.map(el => ({section_id: el.section_id, titulo: el.titulo, parent: Number(JSON.parse(el.parent || "[]")[0].split('_')[1]) || null}));
 
-        if(childrenIds.length > 0) {
-            api.getImmovableRelated(childrenIds).then(function(data) {
-                const parsedData = data.map(el => ({section_id: el.section_id, titulo: el.titulo, parent: Number(JSON.parse(el.parent || "[]")[0].split('_')[1]) || null}));
+            const nodeMap = {};
+            const rootNode = {section_id: row.section_id, titulo: row.titulo, children: []};
+            nodeMap[rootNode.section_id] = rootNode;
 
-                const nodeMap = {};
-                const rootNode = {section_id: row.section_id, titulo: row.titulo, children: []};
-                nodeMap[rootNode.section_id] = rootNode;
+            parsedData.forEach(el => {
+                nodeMap[el.section_id] = {section_id: el.section_id, titulo: el.titulo, children: []};
+            });
+            parsedData.forEach(el => {
+                const parentNode = nodeMap[el.parent];
+                if (parentNode) {
+                    parentNode.children.push(nodeMap[el.section_id]);
+                }
+            });
 
-                parsedData.forEach(el => {
-                    nodeMap[el.section_id] = {section_id: el.section_id, titulo: el.titulo, children: []};
-                });
-                parsedData.forEach(el => {
-                    const parentNode = nodeMap[el.parent];
-                    if (parentNode) {
-                        parentNode.children.push(nodeMap[el.section_id]);
-                    }
-                });
+            const thesaurusData = [rootNode];
 
-                const thesaurusData = [rootNode];
+            function renderTree(node) {
+                const url = page_globals.__WEB_ROOT_WEB__ + "/imm/" + node.section_id;
 
-                function renderTree(node) {
-                    const url = page_globals.__WEB_ROOT_WEB__ + "/imm/" + node.section_id;
+                const tree_node = document.createElement('div');
+                tree_node.className = 'tree_node';
 
-                    const tree_node = document.createElement('div');
-                    tree_node.className = 'tree_node';
+                const grouped_children = document.createElement('div');
+                grouped_children.className = 'grouped_children';
 
-                    const grouped_children = document.createElement('div');
-                    grouped_children.className = 'grouped_children';
+                const term_span = document.createElement('span');
+                term_span.className = 'term';
+                const link = document.createElement('a');
+                link.href = url;
+                link.target = '_blank';
+                link.textContent = node.titulo;
+                term_span.appendChild(link);
+                grouped_children.appendChild(term_span);
+                tree_node.appendChild(grouped_children);
 
-                    const term_span = document.createElement('span');
-                    term_span.className = 'term';
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.target = '_blank';
-                    link.textContent = node.titulo;
-                    term_span.appendChild(link);
-                    grouped_children.appendChild(term_span);
-                    tree_node.appendChild(grouped_children);
+                if (node.children.length > 0) {
+                    const arrow = document.createElement('button');
+                    arrow.className = 'arrow';
+                    grouped_children.appendChild(arrow);
 
-                    if (node.children.length > 0) {
-                        const arrow = document.createElement('button');
-                        arrow.className = 'arrow';
-                        grouped_children.appendChild(arrow);
+                    const branch = document.createElement('div');
+                    branch.className = 'branch hide';
+                    node.children.forEach(child => branch.appendChild(renderTree(child)));
+                    tree_node.appendChild(branch);
 
-                        const branch = document.createElement('div');
-                        branch.className = 'branch hide';
-                        node.children.forEach(child => branch.appendChild(renderTree(child)));
-                        tree_node.appendChild(branch);
-
-                        arrow.addEventListener('click', function () {
-                            if (this.classList.contains('open')) {
-                                branch.classList.add('hide');
-                                this.classList.remove('open');
-                            } else {
-                                branch.classList.remove('hide');
-                                this.classList.add('open');
-                            }
-                        });
-                    }
-
-                    return tree_node;
+                    arrow.addEventListener('click', function () {
+                        if (this.classList.contains('open')) {
+                            branch.classList.add('hide');
+                            this.classList.remove('open');
+                        } else {
+                            branch.classList.remove('hide');
+                            this.classList.add('open');
+                        }
+                    });
                 }
 
-                thesaurusData.forEach(node => treeWrapper.appendChild(renderTree(node)));
-            })
+                return tree_node;
+            }
+
+            thesaurusData.forEach(node => treeWrapper.appendChild(renderTree(node)));
+        }
 
         appendTemplate(target, template);
-        }
     },
 
     /**
@@ -1961,22 +2144,25 @@ var item = {
         appendTemplate(target, this.template(row));
 
         if (row.table === 'immovables') {
-            const parentIds = JSON.parse(row.parent || "[]").map(el => el.split('_')[1]);
-            if(parentIds.length > 0) {
-                api.getImmovableRelated(parentIds).then(function(data) {
-                    const parentOrder = Object.fromEntries(parentIds.map((id, i) => [id, i]));
-                    const orderedData = data.slice().sort((a, b) =>
-                        parentOrder[String(a.section_id)] - parentOrder[String(b.section_id)]
-                    );
-                    const parentsTitles = orderedData.map(el => {
-                        const url = page_globals.__WEB_ROOT_WEB__ + '/imm/' + el.section_id;
-                        return (`<a href="${url}" target="_blank">${el.titulo}</a>`);
-                    }).join(' / ');
-                    const parentsBreadcrumb = document.getElementById('parents-breadcrumb');
-                    if (parentsBreadcrumb && orderedData.length > 0) {
-                        parentsBreadcrumb.innerHTML = ` / ${parentsTitles}`;
-                    }
-                })
+            // parents breadcrumb
+            const parsedIds = common.parseJsonArray(row.parents);
+            const parsedTitles = common.parseJsonArray(row.parents_text);
+            const parentsCutValencia = parsedIds.indexOf('6461') !== -1 ? parsedIds.indexOf('6461') : null;
+            const parentsCutJaciments = parsedIds.indexOf('2') !== -1 ? parsedIds.indexOf('2') : null;
+
+            if (parentsCutValencia || parentsCutJaciments) {
+                const parentsCut = parentsCutValencia || parentsCutJaciments;
+                parsedIds.splice(parentsCut, parsedIds.length - parentsCut);
+                parsedTitles.splice(parentsCut, parsedTitles.length - parentsCut);
+            }
+
+            if (parsedIds.length > 0 && parsedIds.length === parsedTitles.length) {
+                const parentsTitles = parsedIds.map((id, i) => {
+                    const url = page_globals.__WEB_ROOT_WEB__ + '/imm/' + id;
+                    return (`<a href="${url}" target="_blank">${parsedTitles[i]}</a>`);
+                }).join(' / ');
+                const parentsBreadcrumb = document.getElementById('parents-breadcrumb');
+                parentsBreadcrumb.innerHTML = ` / ${parentsTitles}`;
             }
         }
 
@@ -1992,13 +2178,16 @@ var item = {
             this.getRelations(row);
         }
 
+        //bibliografia
+        this.templatePatrimonio(acordion, row);
+
         //patrimoni relacionat
         appendTemplate(acordion, this.templateRelated(row));
 
         if (row.tpl === "imm") {
             //visita al jaciment
             this.templateJacimentVisit(acordion, row);
-            appendTemplate(acordion, this.templateRelatedJaciments(row));
+            this.templateRelatedJaciments(acordion, row);
         }
 
         //recursos

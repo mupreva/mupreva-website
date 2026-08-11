@@ -30,7 +30,7 @@ define(
 define(
     '__WEB_BASE_URL__',
     ($environment === 'prod')
-        ? 'https://test01.mupreva.es'
+        ? 'https://map.museum'
         : 'https://web2024.mupreva.antaviana.net'
 );
 
@@ -38,7 +38,7 @@ define(
 define(
     '__WEB_MEDIA_BASE_URL__',
     ($environment === 'prod')
-        ? 'https://test01.mupreva.es'
+        ? 'https://map.museum'
         : 'https://web2024.mupreva.antaviana.net'
 );
 
