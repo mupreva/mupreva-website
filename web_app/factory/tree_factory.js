@@ -229,7 +229,8 @@ function tree_factory() {
         }
 
         // Botó per a public_info
-        if (row.public_info && row.public_info.length > 0) {
+        // Ara public_info es mostra dins de relations_container quan es deplega, ja no té botó/toggle propi
+        /*if (row.public_info && row.public_info.length > 0) {
             const btn_public_info = common.create_dom_element({
                 element_type: "button",
                 class_name: "btn_scope_note",
@@ -244,14 +245,16 @@ function tree_factory() {
                     this.classList.add("open")
                 }
             })
-        }
+        }*/
 
         // Botó per a relations
+        // Es mostra si hi ha public_info (independent de si hi ha relations, que arriben més tard via fetch)
+        const has_public_info = row.public_info && row.public_info.length > 0
         var btn_relations = common.create_dom_element({
             element_type: "button",
             class_name: "btn_relations",
             parent: tree_node,
-            style: {"display": "none"}
+            style: {"display": has_public_info ? "inline-block" : "none"}
         })
 
         /*let btn_relations
@@ -274,13 +277,13 @@ function tree_factory() {
 
         // botó a la fitxa
         // TODO boto ja hi es
-        let link_to_page = common.create_dom_element({
+        /*let link_to_page = common.create_dom_element({
             element_type: "a",
             class_name: "btn_chain",
             target: "_blank",
             href: page_globals.__WEB_ROOT_WEB__ + '/' + page.tld_to_template(row.tld) + '/' + row.section_id,
             parent: tree_node
-        })
+        })*/
 
         // Botó per a indexation
         let btn_indexation
@@ -341,8 +344,8 @@ function tree_factory() {
             })
         }
 
-        // Creació de l'element per a scope_note (sempre es manté fora)
-        let public_info
+        // public_info: ara es mostra dins de relations_container quan aquest es deplega (veure creació de relations_container)
+        /*let public_info
         if (row.public_info && row.public_info.length > 0) {
             const hide_style = row.state === "opened" ? "" : " hide"
             const public_info_text = row.public_info.replace(/^\s*<br\s*\/?>|<br\s*\/?>\s*$/g, '');
@@ -352,7 +355,7 @@ function tree_factory() {
                 inner_html: public_info_text,
                 parent: tree_node
             })
-        }
+        }*/
 
         // relations wrapper
         /*let relations_container
@@ -395,13 +398,32 @@ function tree_factory() {
                     self.hilite_relations_showed++
                 }
         }*/
-        // relations_container
+        // relations_container: contenidor plegable que conté, per separat, el public_info i la galeria de relacions
         var relations_container = common.create_dom_element({
             element_type	: "div",
-            class_name		: "relations_container hide galeria galeria--92x92",
+            class_name		: "relations_container hide",
             parent			: tree_node,
             //style: {"display": "none"}
         })
+
+        // public_info es mostra dins de relations_container quan aquest es deplega, separat de la galeria
+        if (row.public_info && row.public_info.length > 0) {
+            const public_info_text = row.public_info.replace(/^\s*<br\s*\/?>|<br\s*\/?>\s*$/g, '');
+            common.create_dom_element({
+                element_type: "div",
+                class_name: "public_info",
+                inner_html: public_info_text,
+                parent: relations_container
+            })
+        }
+
+        // gallery_container: subcontenidor on es dibuixen les imatges de les relacions
+        var gallery_container = common.create_dom_element({
+            element_type	: "div",
+            class_name		: "galeria galeria--92x92",
+            parent			: relations_container
+        })
+
         btn_relations.addEventListener("click", function () {
             if (this.classList.contains("open")) {
                 relations_container.classList.add("hide")
@@ -411,6 +433,7 @@ function tree_factory() {
                 this.classList.add("open")
             }
         })
+        
 
         var download = false;;
         respondToVisibility(tree_node, visible => {
@@ -443,7 +466,7 @@ function tree_factory() {
                                 return value;
                             })
                             btn_relations.style.display = "inline-block";
-                            self.render_relation_nodes(row, relations_container, self, false)
+                            self.render_relation_nodes(row, gallery_container, self, false)
 
                             // Callback function to execute when mutations are observed
                             /*const callback = function(mutationsList, observer) {

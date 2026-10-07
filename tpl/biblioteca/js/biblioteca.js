@@ -568,6 +568,11 @@ var biblio = {
 
         const self = this
 
+        const form_inputs = document.querySelectorAll('input, select, textarea, button');
+        form_inputs.forEach(function (input) {
+            input.disabled = true;
+        });
+
         if (!self.default_submit) {
             self.used_form = true;
         }
@@ -650,30 +655,61 @@ var biblio = {
                     }
 
                     // draw
-                    setTimeout(() => {
-                        spinner.remove()
-
-                        self.render_data({
-                            ar_rows: response.result
-                        })
-                            .then(function (list_node) {
-                                if (self.used_form) {
-                                    const total_found = response.total || response.result.length || 0;
-                                    const resultsCountNode = document.createElement('p');
-                                    resultsCountNode.className = 'has-text-right';
-                                    resultsCountNode.textContent = `${total_found} ${(tstring.entries_found).toLowerCase()}`;
-                                    self.rows_list_container.appendChild(resultsCountNode);
+                    const fetch_fragments = (!self.search_literal || !response.result.length)
+                        ? Promise.resolve(response.result)
+                        : (function() {
+                            const section_ids = response.result.map(r => r.section_id).join(',')
+                            const q = self.form.form_items.transcripcion.q
+                            return data_manager.request({
+                                body: {
+                                    dedalo_get: 'text_fragment',
+                                    lang: page_globals.WEB_CURRENT_LANG_CODE,
+                                    section_id: section_ids,
+                                    q: q,
+                                    column: 'transcripcion',
+                                    max_occurrences: 20
                                 }
-                                if (common.is_node(list_node)) {
-                                    rows_list_container.appendChild(list_node)
-                                }
-                                self.form_submit_state = 'done'
-                                event_manager.publish('rendered', {
-                                    rows_list_container: rows_list_container
+                            }).then(function(tf_response) {
+                                const fragments_array = Array.isArray(tf_response) ? tf_response : (tf_response.result || [])
+                                const fragments_map = {}
+                                fragments_array.forEach(function(item) {
+                                    fragments_map[item.section_id] = item.fragments
                                 })
-                                resolve(rows_list_container) // All work is done. Final resolve !
+                                return response.result.map(function(row) {
+                                    return Object.assign({}, row, {text_fragments: fragments_map[row.section_id] || []})
+                                })
                             })
-                    }, self.draw_delay)
+                        })()
+
+                    fetch_fragments.then(function(ar_rows) {
+                        setTimeout(() => {
+                            spinner.remove()
+
+                            self.render_data({
+                                ar_rows: ar_rows
+                            })
+                                .then(function (list_node) {
+                                    if (self.used_form) {
+                                        const total_found = response.total || response.result.length || 0;
+                                        const resultsCountNode = document.createElement('p');
+                                        resultsCountNode.className = 'has-text-right';
+                                        resultsCountNode.textContent = `${total_found} ${(tstring.entries_found).toLowerCase()}`;
+                                        self.rows_list_container.appendChild(resultsCountNode);
+                                    }
+                                    if (common.is_node(list_node)) {
+                                        rows_list_container.appendChild(list_node)
+                                    }
+                                    self.form_submit_state = 'done'
+                                    form_inputs.forEach(function (input) {
+                                        input.disabled = false;
+                                    });
+                                    event_manager.publish('rendered', {
+                                        rows_list_container: rows_list_container
+                                    })
+                                    resolve(rows_list_container) // All work is done. Final resolve !
+                                })
+                        }, self.draw_delay)
+                    })
 
                     // scrool to head result
                     // if (response.result.length>0) {
@@ -696,11 +732,26 @@ var biblio = {
 
         const self = this
 
+        const default_ar_fields = [
+            "section_tipo",
+            "section_id",
+            "autor",
+            "fecha_publicacion",
+            "pdf",
+            "titulo",
+            "pertenencia_data",
+            "num_paginas",
+            "serie",
+            "num_serie",
+            "tipologia_bibliografica",
+        ]
+
         // options
         const table = options.table || self.biblio_table
         const filter = options.filter || null
         // const ar_fields = options.ar_fields || "*"
-        const ar_fields = self.search_literal ? "*" : "section_tipo,section_id,autor,fecha_publicacion,pdf,titulo,pertenencia_data";
+        // const ar_fields = self.search_literal ? "*" : "section_tipo,section_id,autor,fecha_publicacion,pdf,titulo,pertenencia_data";
+        const ar_fields = default_ar_fields.join(',');
         // const order = options.order || "COALESCE(authors_surname, 'zz') ASC, publication_date ASC"
         // const order = options.order || "pertenencia_data ASC, ISNULL(autor), autor ASC, fecha_publicacion ASC" // ORDRE MASSA COMPLEX I LENT
         const order = options.order || "ISNULL(autor), autor ASC, fecha_publicacion ASC" // ORDRE SIMPLIFICAT
@@ -855,98 +906,6 @@ var biblio = {
         if (row.pdf !== null) {
             image_url = __WEB_MEDIA_ENGINE_URL__+imgPdf(row.pdf);
         }
-        const normalize = str => str.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-
-        function highlightNormalized(text, search) {
-            const normSearch = normalize(search).toLowerCase();
-            let result = '';
-            let i = 0;
-            while (i <= text.length - search.length) {
-                const candidate = text.substr(i, search.length);
-                if (normalize(candidate).toLowerCase() === normSearch) {
-                    result += `<span class="has-background-primary has-text-white px-1">${candidate}</span>`;
-                    i += search.length;
-                } else {
-                    result += text[i];
-                    i++;
-                }
-            }
-            result += text.slice(i);
-            return result;
-        }
-
-        function findInText(text, search, chunkSize = 300) {
-            const normText = normalize(text).toLowerCase();
-            const normSearch = normalize(search).toLowerCase();
-
-            let results = [];
-            let startIndex = 0;
-
-            while (startIndex < normText.length) {
-                const matchIndex = normText.indexOf(normSearch, startIndex);
-                if (matchIndex === -1) break;
-
-                const searchLen = normSearch.length;
-                let contextStart = Math.max(0, matchIndex - Math.floor((chunkSize - searchLen) / 2));
-                let contextEnd = contextStart + chunkSize;
-
-                if (contextEnd > text.length) {
-                    contextEnd = text.length;
-                    contextStart = Math.max(0, contextEnd - chunkSize);
-                }
-
-                const chunk = text.slice(contextStart, contextEnd);
-                const chunkHighlighted = highlightNormalized(chunk, search);
-
-                results.push(`...${chunkHighlighted}...`);
-
-                startIndex = matchIndex + searchLen;
-            }
-
-            return results;
-        }
-
-        function getWordContexts(row, searchWord, contextSize = 30) {
-            const regex = new RegExp(normalize(searchWord), 'i');
-
-            // find first page
-            let firstPage = 1;
-            if (row.num_paginas) {
-                const pageRange = row.num_paginas.match(/\d+/g);
-                if (pageRange.length > 1) {
-                    firstPage = parseInt(pageRange[0])
-                }
-            }
-
-            let result = [];
-
-            if (row.transcripcion) {
-                const transcription = row.transcripcion.replace(/(<br\s*\/?>)+/gi, ' ');
-
-                // find all word instances and extract text context
-                const contexts = findInText(transcription, searchWord);
-
-                // split transcript by pages
-                const splitPattern = /\[page-n-\d+]/;
-                const pages = transcription.split(splitPattern).filter(el => el !== '');
-
-                // store page of each word instance
-                let pageOfEachContext = [];
-                pages.forEach((page, pageIndex) => {
-                    const pageContexts = findInText(page, searchWord);
-                    if (pageContexts.length) {
-                        pageOfEachContext.push(firstPage + pageIndex);
-                    }
-                })
-
-                result = contexts.map((context, i) => ({context, page: pageOfEachContext[i]}));
-            }
-
-            return result;
-        }
-
-        const inputText = this.caller.form.form_items.transcripcion.q;
-
         let infoSerie = [];
         if (row.serie) {
             infoSerie.push(row.serie);
@@ -991,14 +950,17 @@ var biblio = {
                             ${infoSerie}
                             </p>
                         </div>
-                        ${(inputText)?
-                            getWordContexts(row, inputText)
-                                .map(result => (`
-                                    <div class="flow--3xs">
-                                        <h4 class="is-size-6 has-text-weight-medium">${tstring.item_pag} ${result.page}</h4>
-                                        <p class="is-size-6">${result.context}</p>
-                                    </div>
-                                `)).join('')
+                        ${(row.text_fragments && row.text_fragments.length > 0)?
+                            (function() {
+                                const first_page = row.num_paginas ? (parseInt(row.num_paginas) || 0) : 0;
+                                return row.text_fragments
+                                    .map(fragment => (`
+                                        <div class="flow--3xs">
+                                            <h4 class="is-size-6 has-text-weight-medium">${tstring.item_pag} ${first_page + fragment.page_number}</h4>
+                                            <p class="is-size-6">${fragment.fragm.replaceAll('<br>', ' ')}</p>
+                                        </div>
+                                    `)).join('')
+                            })()
                         :''}
                     </div>
                     <div class="column is-narrow">

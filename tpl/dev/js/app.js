@@ -857,7 +857,9 @@ function viewInit() {
                         const activeImage = this;
                         const urlImg = activeImage.dataset.original;
                         const caption = activeImage.dataset.caption || null;
-                        hiresViewer(urlImg, caption);
+                        common.get_best_image_url(urlImg).then(function (result) {
+                            hiresViewer(result.url, caption);
+                        });
                     });
                 });
             }
@@ -871,7 +873,9 @@ function viewInit() {
                     );
                     const urlImg = activeImage.dataset.original;
                     const caption = activeImage.dataset.caption || null;
-                    hiresViewer(urlImg, caption);
+                    common.get_best_image_url(urlImg).then(function (result) {
+                        hiresViewer(result.url, caption);
+                    });
                 });
             }
             const download = group.querySelector(".image-action-download");

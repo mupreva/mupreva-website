@@ -1,0 +1,32 @@
+.interventions-list {
+    display: grid;
+    grid-template-columns: max-content auto;
+    align-items: center;
+    column-gap: var(--space-s);
+    row-gap: var(--space-s);
+    font-size: var(--step--1);
+
+    @include mobile {
+        grid-template-columns: auto auto;
+    }
+
+    li {
+        display: grid;
+        grid-template-columns: subgrid;
+        grid-column: 1 / -1;
+        margin-top: 0;
+
+        a {
+            grid-column: 1;
+        }
+        img {
+            grid-column: 2;
+            width: 7rem;
+
+            @include mobile {
+                grid-column: 1 / -1;
+                margin-top: var(--space-xs);
+            }
+        }
+    }
+}

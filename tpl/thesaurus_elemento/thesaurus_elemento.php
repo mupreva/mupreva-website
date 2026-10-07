@@ -50,6 +50,9 @@ switch ($ar_parts[0]) {
     case 'top':
         $table = 'ts_ubication';
         break;
+    case 'htop':
+        $table = 'ts_htoponymy';
+        break;
 }
 
 // page basic vars

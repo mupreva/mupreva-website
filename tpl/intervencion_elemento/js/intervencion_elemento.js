@@ -231,6 +231,8 @@ var item = {
 
     template: function (row) {
         const url = this.absUrl(row);
+        const safeDesc = common.sanitizeTextBr(row.description) || row.description;
+
         return htmlTemplate(`
 <div class="fitxa-intro columns is-variable is-8">
     <div class="column flow--l">
@@ -248,6 +250,10 @@ var item = {
         <p> ${tstring.item_url_perm} <br>
             <a href="${url}">${url}</a>
         </p>
+
+        <div class="mt-8">
+            ${safeDesc}
+        </div>
     </div>
     <div class="column is-1 is-hidden-touch is-hidden-desktop-only"></div>
     ${this.renderImages(row)}
@@ -330,7 +336,7 @@ var item = {
                     </div>
                 </div>
                 <!-- Eines -->
-                <div class="is-flex is-justify-content-center gap-7 is-relative py-4">
+                <div class="is-flex is-justify-content-center gap-7 is-relative py-4" style="height: 60px;">
                     <!-- fletxes -->
                     <div class="swiper-button-prev"></div>
                     <div class="swiper-button-next"></div>
@@ -418,7 +424,8 @@ var item = {
         target.appendChild(acordion);
 
         //info
-        appendTemplate(acordion, this.templateInfo(row));
+        // comentat perquè s'ha afegit la descripció a la fitxa principal
+        // appendTemplate(acordion, this.templateInfo(row));
 
 
     }, //end render

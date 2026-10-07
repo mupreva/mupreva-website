@@ -46,14 +46,6 @@ var page = {
                 },
                 default: true
             },
-            // {
-            // 	name	: "grey",
-            // 	url 	: '//{s}.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoiYWxleGFkZXYiLCJhIjoiY2lrOHdvaTQzMDEwbHY5a3UxcDYxb25ydiJ9.h737F1gRyib-MFj6uAXs9A',
-            // 	options	: {
-            // 		maxZoom	: 20,
-            // 		id		: 'alexadev.p2lbljap'
-            // 	}
-            // },
             {
                 name: "ARCGIS",
                 url: '//server.arcgisonline.com/ArcGIS/' + 'rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -932,6 +924,9 @@ var page = {
                 break;
             case 'ubication1':
                 template = 'top';
+                break;
+            case 'htoponymy1':
+                template = 'htop';
                 break;
         }
         return template

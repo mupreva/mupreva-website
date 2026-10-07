@@ -915,6 +915,7 @@ var salas = {
             const fragment = document.createDocumentFragment()
 
             const render_node = (item, parent_element, level) => {
+                const salaUrl = page_globals.__WEB_ROOT_WEB__ + '/top/' + item.section_id
                 // Level 0: Render as title without accordion
                 if (level === 0) {
                     const salas_title = htmlTemplate(`
@@ -978,19 +979,24 @@ var salas = {
                 if (level === 1) {
 
                     const title_level1 = htmlTemplate(`
-                        <h3 class="term-title is-size-3">${item.term}</h3>
+                        <h3 class="term-title is-size-3">
+                            ${item.term}
+                        </h3>
                     `)
                     appendTemplate(sala_wrapper, title_level1)
 
                     const sala_info = htmlTemplate(`
                         <div class="sala-info columns is-variable is-8 mt-4">
-                            ${item.definition ?
-                                `<div class="column">
-                                    <div class="definition is-size-6">
+                            <div class="column flow">
+                                ${item.definition ?
+                                    `<div class="definition is-size-6">
                                         ${item.definition}
-                                    </div>
-                                </div>` : ''
-                            }
+                                    </div>` : ''
+                                }
+                                <div><a href="${salaUrl}" target="_blank">
+                                    ${tstring.collection_see_more}
+                                </a></div>
+                            </div>
                             ${item.illustration && item.illustration.length > 0 ?
                                 `<div class="column">
                                     <img class="illustration" src="${__WEB_MEDIA_ENGINE_URL__ + item.illustration}" alt="${item.term || ''}">
@@ -1051,16 +1057,19 @@ var salas = {
                 content.setAttribute('aria-hidden', is_expanded ? 'false' : 'true')
 
                 // Definition, illustration and images slider - only for level 2+
-                if (level > 1 && (item.definition || item.illustration || (item.image_ids && item.image_ids.length > 0))) {
+                if (level > 1) {
                     const info_template = htmlTemplate(`
                         <div class="info-container block-dedalo columns is-variable is-8">
-                            ${item.definition ?
-                                `<div class="column">
-                                    <div class="definition is-size-6">
+                            <div class="column flow">
+                                ${item.definition ?
+                                    `<div class="definition is-size-6">
                                         ${item.definition}
-                                    </div>
-                                </div>` : ''
-                            }
+                                    </div>` : ''
+                                }
+                                <div><a href="${salaUrl}" target="_blank" class="has-text-weight-normal">
+                                    ${tstring.collection_see_more}
+                                </a></div>
+                            </div>
                             ${level < 3 && item.illustration && item.illustration.length > 0 ?
                                 `<div class="column is-one-third">
                                     <img class="illustration" src="${__WEB_MEDIA_ENGINE_URL__ + item.illustration}" alt="${item.term || ''}">
